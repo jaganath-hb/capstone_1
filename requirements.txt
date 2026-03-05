@@ -1,0 +1,8 @@
+streamlit
+pandas
+scikit-learn
+sentence-transformers
+faiss-cpu
+openai
+azure-applicationinsights
+python-dotenv

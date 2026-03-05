@@ -1,0 +1,38 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\streamlit\__main__.py", line 15, in <module>
+    from streamlit.web.cli import main
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\streamlit\web\cli.py", line 31, in <module>
+    from streamlit.web import bootstrap
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\streamlit\web\bootstrap.py", line 27, in <module>
+    from streamlit.web.server import Server, server_address_is_unix_socket, server_util
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\streamlit\web\server\__init__.py", line 15, in <module>
+    from streamlit.web.server.component_request_handler import ComponentRequestHandler
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\streamlit\web\server\component_request_handler.py", line 19, in <module>
+    import tornado.web
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\tornado\web.py", line 88, in <module>
+    from tornado.httpserver import HTTPServer
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\tornado\httpserver.py", line 32, in <module>
+    from tornado.http1connection import HTTP1ServerConnection, HTTP1ConnectionParameters
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\tornado\http1connection.py", line 34, in <module>
+    from tornado import iostream
+  File "<frozen importlib._bootstrap>", line 1229, in _handle_fromlist
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\tornado\__init__.py", line 66, in __getattr__
+    return importlib.import_module("." + name, __name__)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\labuser\AppData\Local\Programs\Python\Python311\Lib\importlib\__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\tornado\iostream.py", line 40, in <module>
+    from tornado.netutil import ssl_wrap_socket, _client_ssl_defaults, _server_ssl_defaults
+  File "C:\Jagan\Project\Test\.venv\Lib\site-packages\tornado\netutil.py", line 35, in <module>
+    _client_ssl_defaults = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\labuser\AppData\Local\Programs\Python\Python311\Lib\ssl.py", line 775, in create_default_context
+    context.load_default_certs(purpose)
+  File "C:\Users\labuser\AppData\Local\Programs\Python\Python311\Lib\ssl.py", line 596, in load_default_certs
+    self._load_windows_store_certs(storename, purpose)
+  File "C:\Users\labuser\AppData\Local\Programs\Python\Python311\Lib\ssl.py", line 588, in _load_windows_store_certs
+    self.load_verify_locations(cadata=certs)
+ssl.SSLError: [X509] unknown error (_ssl.c:4035)
