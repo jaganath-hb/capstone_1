@@ -2,7 +2,12 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
   build:
@@ -12,11 +17,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # NEW: Create lowercase image name
+    - name: Set lowercase image name
+      id: vars
+      run: |
+        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        REPO=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+        echo "IMAGE=ghcr.io/$OWNER/$REPO:latest" >> $GITHUB_ENV
+        echo "IMAGE_SHA=ghcr.io/$OWNER/$REPO:${{ github.sha }}" >> $GITHUB_ENV
+
     - name: Login to GHCR
-      run: echo "${{ secrets.SECRET_GENFLUX }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
     - name: Build image
-      run: docker build -t ghcr.io/${{ github.repository }}/app:latest .
+      run: |
+        docker build -t "$IMAGE" -t "$IMAGE_SHA" .
 
     - name: Push image
-      run: docker push ghcr.io/${{ github.repository }}/app:latest
+      run: |
+        docker push "$IMAGE"
+        docker push "$IMAGE_SHA"
