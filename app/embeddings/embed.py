@@ -13,4 +13,4 @@ def get_model(name: str = "all-MiniLM-L6-v2"):
 def embed_texts(texts):
     model = get_model()
     emb = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
-    return emb)
+    return emb
