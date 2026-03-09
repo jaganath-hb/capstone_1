@@ -4,24 +4,49 @@ load_dotenv()
 import os
 import json
 import re
-from typing import Any
-from openai import AzureOpenAI
+from typing import TypedDict, List, Dict, Any
+
+from langchain_openai import AzureChatOpenAI
+from langgraph.graph import StateGraph, END
 
 
-# ---------------------------------------------------
-# Prompt Template
-# ---------------------------------------------------
+# ------------------------------------------------
+# Agent State
+# ------------------------------------------------
 
-PROMPT_TEMPLATE = """
+class AgentState(TypedDict):
+    cluster_summaries: str
+    improvements: List[Dict[str, Any]]
+
+
+# ------------------------------------------------
+# Azure LLM
+# ------------------------------------------------
+
+llm = AzureChatOpenAI(
+    azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+    api_version="2024-02-15-preview",
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    api_key=os.environ["AZURE_OPENAI_KEY"],
+)
+
+
+# ------------------------------------------------
+# Prompt
+# ------------------------------------------------
+
+PROMPT = """
 You are a product improvement assistant.
 
-Given the cluster summaries below, generate the TOP 5 actionable product improvements.
+Based on the cluster summaries, generate the TOP 5 product improvement actions.
 
 Rules:
-- Prioritize by impact
-- Provide clear action
-- Give one-line rationale
-- Assign priority (1 = highest)
+- Action must be MAX 12 words
+- Rationale must be MAX 15 words
+- Be concise
+- No paragraphs
+- No numbering
+- No explanations
 
 Cluster summaries:
 {cluster_summaries}
@@ -30,28 +55,28 @@ Return ONLY JSON in this format:
 
 {{
  "improvements":[
-  {{"action":"...","rationale":"...","priority":1}},
-  {{"action":"...","rationale":"...","priority":2}},
-  {{"action":"...","rationale":"...","priority":3}},
-  {{"action":"...","rationale":"...","priority":4}},
-  {{"action":"...","rationale":"...","priority":5}}
+  {{"action":"short action","rationale":"short reason","priority":1}},
+  {{"action":"short action","rationale":"short reason","priority":2}},
+  {{"action":"short action","rationale":"short reason","priority":3}},
+  {{"action":"short action","rationale":"short reason","priority":4}},
+  {{"action":"short action","rationale":"short reason","priority":5}}
  ]
 }}
 """
 
 
-# ---------------------------------------------------
-# Robust JSON Parser
-# ---------------------------------------------------
+# ------------------------------------------------
+# JSON Parser
+# ------------------------------------------------
 
-def parse_json_response(text: str) -> Any:
+def parse_json(text: str):
 
     if not text:
-        raise ValueError("Empty response from model")
+        return []
 
     text = text.strip()
 
-    # remove markdown code blocks
+    # remove markdown if present
     text = re.sub(r"```json", "", text)
     text = re.sub(r"```", "", text)
 
@@ -63,102 +88,68 @@ def parse_json_response(text: str) -> Any:
 
         return data
 
-    except json.JSONDecodeError:
-        pass
+    except Exception:
 
-    # try extracting JSON object
-    match = re.search(r"\{.*\}", text, re.DOTALL)
+        # fallback extraction
+        match = re.search(r"\{.*\}", text, re.DOTALL)
 
-    if match:
-        try:
-            data = json.loads(match.group(0))
+        if match:
+            try:
+                data = json.loads(match.group(0))
 
-            if isinstance(data, dict) and "improvements" in data:
-                return data["improvements"]
+                if "improvements" in data:
+                    return data["improvements"]
 
-            return data
+            except Exception:
+                pass
 
-        except Exception:
-            pass
+    print("\nRAW LLM OUTPUT:\n", text)
 
-    print("\n----- RAW MODEL OUTPUT -----\n")
-    print(text)
-    print("\n----------------------------\n")
-
-    raise ValueError("Could not parse JSON from model output")
+    return []
 
 
-# ---------------------------------------------------
-# Azure Client
-# ---------------------------------------------------
+# ------------------------------------------------
+# Agent Node
+# ------------------------------------------------
 
-def create_client():
+def improvement_agent(state: AgentState):
 
-    return AzureOpenAI(
-        api_key=os.environ["AZURE_OPENAI_KEY"],
-        api_version="2024-02-15-preview",
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"]
+    prompt = PROMPT.format(
+        cluster_summaries=state["cluster_summaries"]
     )
 
+    response = llm.invoke(prompt)
 
-# ---------------------------------------------------
-# Main LLM Function
-# ---------------------------------------------------
+    improvements = parse_json(response.content)
+
+    return {
+        "improvements": improvements
+    }
+
+
+# ------------------------------------------------
+# Build Graph
+# ------------------------------------------------
+
+graph = StateGraph(AgentState)
+
+graph.add_node("improvement_agent", improvement_agent)
+
+graph.set_entry_point("improvement_agent")
+
+graph.add_edge("improvement_agent", END)
+
+app = graph.compile()
+
+
+# ------------------------------------------------
+# Function for Pipeline
+# ------------------------------------------------
 
 def propose_improvements(cluster_summaries: str):
 
-    client = create_client()
+    result = app.invoke({
+        "cluster_summaries": cluster_summaries
+    })
 
-    deployment_name = os.environ["AZURE_OPENAI_DEPLOYMENT"]
-
-    prompt = PROMPT_TEMPLATE.format(
-        cluster_summaries=cluster_summaries
-    )
-
-    try:
-
-        response = client.chat.completions.create(
-            model=deployment_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful product improvement assistant."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_completion_tokens=600
-        )
-
-        message = response.choices[0].message
-        text = message.content if message and message.content else ""
-
-        if not text:
-            print("\n⚠️ Model returned empty content")
-            print(response)
-
-            return [
-                {
-                    "action": "Investigate customer complaint clusters",
-                    "rationale": "Model returned empty response",
-                    "priority": 1
-                }
-            ]
-
-        print("\nLLM OUTPUT:\n", text)
-
-        return parse_json_response(text)
-
-    except Exception as e:
-
-        print("\n⚠️ LLM call failed:", str(e))
-
-        return [
-            {
-                "action": "Review major customer complaints manually",
-                "rationale": "LLM processing failed",
-                "priority": 1
-            }
-        ]
+    return result.get("improvements", [])
